@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// TestNewBloomFilter tests the constructor
-func TestNewBloomFilter(t *testing.T) {
+// TestNewStandardFilter tests the constructor
+func TestNewStandardFilter(t *testing.T) {
 	tests := []struct {
 		name      string
 		numBits   uint
@@ -24,7 +24,7 @@ func TestNewBloomFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bf := NewBloomFilter(tt.numBits, tt.numHashes)
+			bf := NewStandardFilter(tt.numBits, tt.numHashes)
 			if bf.NumBits() != tt.wantBits {
 				t.Errorf("NumBits() = %d, want %d", bf.NumBits(), tt.wantBits)
 			}
@@ -57,7 +57,7 @@ func TestEstimateParameters(t *testing.T) {
 				t.Error("numHashes should not be 0")
 			}
 
-			// Verify approximate relationship: k ≈ 0.7 * (m/n)
+			// Check approximate relationship: k ≈ 0.7 * (m/n)
 			expectedK := uint(0.7 * float64(m) / float64(tt.dataSize))
 			if k < expectedK-2 || k > expectedK+2 {
 				t.Logf("k=%d might be off, expected around %d", k, expectedK)
@@ -77,9 +77,9 @@ func TestNewWithEstimatedParams(t *testing.T) {
 	}
 }
 
-// TestAddAndVerify tests basic add and verify operations
-func TestAddAndVerify(t *testing.T) {
-	bf := NewBloomFilter(1000, 7)
+// TestAddAndCheck tests basic add and verify operations
+func TestAddAndCheck(t *testing.T) {
+	bf := NewStandardFilter(1000, 7)
 
 	testData := [][]byte{
 		[]byte("hello"),
@@ -93,10 +93,10 @@ func TestAddAndVerify(t *testing.T) {
 		bf.Add(data)
 	}
 
-	// Verify all added elements return true
+	// Check all added elements return true
 	for _, data := range testData {
-		if !bf.Verify(data) {
-			t.Errorf("Verify(%s) = false, want true (element was added)", data)
+		if !bf.Check(data) {
+			t.Errorf("Check(%s) = false, want true (element was added)", data)
 		}
 	}
 
@@ -109,15 +109,15 @@ func TestAddAndVerify(t *testing.T) {
 	}
 
 	for _, data := range notAdded {
-		if bf.Verify(data) {
-			t.Logf("Verify(%s) = true (false positive, expected but rare)", data)
+		if bf.Check(data) {
+			t.Logf("Check(%s) = true (false positive, expected but rare)", data)
 		}
 	}
 }
 
 // TestEmptyFilter tests that empty filter returns false for all queries
 func TestEmptyFilter(t *testing.T) {
-	bf := NewBloomFilter(1000, 7)
+	bf := NewStandardFilter(1000, 7)
 
 	testData := [][]byte{
 		[]byte("test1"),
@@ -126,31 +126,29 @@ func TestEmptyFilter(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		if bf.Verify(data) {
-			t.Errorf("Verify(%s) = true on empty filter, want false", data)
+		if bf.Check(data) {
+			t.Errorf("Check(%s) = true on empty filter, want false", data)
 		}
 	}
 }
 
 // TestChaining tests that Add returns the filter for chaining
 func TestChaining(t *testing.T) {
-	bf := NewBloomFilter(1000, 7)
+	bf := NewStandardFilter(1000, 7)
 
-	result := bf.Add([]byte("a")).Add([]byte("b")).Add([]byte("c"))
+	bf.Add([]byte("a"))
+	bf.Add([]byte("b"))
+	bf.Add([]byte("c"))
 
-	if result != bf {
-		t.Error("Add() should return the same filter for chaining")
-	}
-
-	// Verify all were added
-	if !bf.Verify([]byte("a")) || !bf.Verify([]byte("b")) || !bf.Verify([]byte("c")) {
+	// Check all were added
+	if !bf.Check([]byte("a")) || !bf.Check([]byte("b")) || !bf.Check([]byte("c")) {
 		t.Error("Chained Add() calls did not work correctly")
 	}
 }
 
 // TestConcurrentAdd tests concurrent writes
 func TestConcurrentAdd(t *testing.T) {
-	bf := NewBloomFilter(10000, 7)
+	bf := NewStandardFilter(10000, 7)
 	var wg sync.WaitGroup
 	numGoroutines := 100
 	itemsPerGoroutine := 100
@@ -169,12 +167,12 @@ func TestConcurrentAdd(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify all items were added
+	// Check all items were added
 	failures := 0
 	for i := 0; i < numGoroutines; i++ {
 		for j := 0; j < itemsPerGoroutine; j++ {
 			data := []byte(fmt.Sprintf("item_%d_%d", i, j))
-			if !bf.Verify(data) {
+			if !bf.Check(data) {
 				failures++
 			}
 		}
@@ -187,7 +185,7 @@ func TestConcurrentAdd(t *testing.T) {
 
 // TestConcurrentReadWrite tests concurrent reads and writes
 func TestConcurrentReadWrite(t *testing.T) {
-	bf := NewBloomFilter(10000, 7)
+	bf := NewStandardFilter(10000, 7)
 	var wg sync.WaitGroup
 	numReaders := 50
 	numWriters := 50
@@ -212,7 +210,7 @@ func TestConcurrentReadWrite(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < duration; j++ {
 				data := []byte(fmt.Sprintf("reader_%d_%d", id, j))
-				bf.Verify(data) // Don't care about result, just testing for races
+				bf.Check(data) // Don't care about result, just testing for races
 			}
 		}(i)
 	}
@@ -223,8 +221,8 @@ func TestConcurrentReadWrite(t *testing.T) {
 
 // TestFalsePositiveRate tests approximate FP rate
 func TestFalsePositiveRate(t *testing.T) {
-	n := 10000          // number of items
-	p := 0.01           // target FP rate (1%)
+	n := 10000 // number of items
+	p := 0.01  // target FP rate (1%)
 	bf := NewWithEstimatedParams(n, p)
 
 	// Add n items
@@ -241,7 +239,7 @@ func TestFalsePositiveRate(t *testing.T) {
 
 	for i := 0; i < testSize; i++ {
 		data := []byte(fmt.Sprintf("test_%d", i))
-		if !added[string(data)] && bf.Verify(data) {
+		if !added[string(data)] && bf.Check(data) {
 			falsePositives++
 		}
 	}
@@ -302,7 +300,7 @@ func TestGetLocation(t *testing.T) {
 
 // BenchmarkAdd benchmarks the Add operation
 func BenchmarkAdd(b *testing.B) {
-	bf := NewBloomFilter(100000, 7)
+	bf := NewStandardFilter(100000, 7)
 	data := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
 		data[i] = []byte(fmt.Sprintf("item_%d", i))
@@ -314,9 +312,9 @@ func BenchmarkAdd(b *testing.B) {
 	}
 }
 
-// BenchmarkVerify benchmarks the Verify operation
-func BenchmarkVerify(b *testing.B) {
-	bf := NewBloomFilter(100000, 7)
+// BenchmarkCheck benchmarks the Check operation
+func BenchmarkCheck(b *testing.B) {
+	bf := NewStandardFilter(100000, 7)
 	// Pre-populate
 	for i := 0; i < 10000; i++ {
 		bf.Add([]byte(fmt.Sprintf("item_%d", i)))
@@ -329,13 +327,13 @@ func BenchmarkVerify(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		bf.Verify(data[i])
+		bf.Check(data[i])
 	}
 }
 
 // BenchmarkConcurrentAdd benchmarks concurrent Add operations
 func BenchmarkConcurrentAdd(b *testing.B) {
-	bf := NewBloomFilter(1000000, 7)
+	bf := NewStandardFilter(1000000, 7)
 
 	b.RunParallel(func(pb *testing.PB) {
 		i := 0

@@ -7,19 +7,25 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-// This type holds bit array + parameters for a Bloom filter.
-type BloomFilter struct {
+// This type holds bit array + parameters for a Bloom filter. We consider this as the standard bloom filter type.
+type StandardFilter struct {
 	numBits   uint
 	numHashes uint
 	bitset    *bitset.BitSet
 	mu        sync.RWMutex
 }
 
-// Constructor for BloomFilter
-func NewBloomFilter(numBits, numHashes uint) *BloomFilter {
-	if numBits < 1 {numBits = 1 }
-	if numHashes < 1 {numHashes = 1 }
-	return &BloomFilter{ // If Condition: For numBits and numHashes, ensure they are at least 1 to avoid panics
+// Constructor for Bloom StandardFilter
+func NewStandardFilter(numBits, numHashes uint) *StandardFilter {
+	// If Condition: For numBits and numHashes, ensure they are at least 1 to avoid panics
+	if numBits < 1 {
+		numBits = 1
+	}
+	if numHashes < 1 {
+		numHashes = 1
+	}
+
+	return &StandardFilter{
 		numBits:   numBits,
 		numHashes: numHashes,
 		bitset:    bitset.New(numBits),
@@ -40,9 +46,8 @@ func NewBloomFilter(numBits, numHashes uint) *BloomFilter {
 // 	return &BloomFilter{m, k, bitset.From(data)}
 // }
 
-
 // Theordically, we can use 2 hash values to create k hashes, but here we are using 4 hash values to create k hashes for better randomness.
-func baseHashes(data []byte) [4]uint64{
+func baseHashes(data []byte) [4]uint64 {
 	var d digest128 // murmur hashing
 	hash1, hash2, hash3, hash4 := d.sum256(data)
 	return [4]uint64{
@@ -52,7 +57,7 @@ func baseHashes(data []byte) [4]uint64{
 
 // With above 4 hash values, we now need to actual bitset location. We would use something simlar to double hashing to get the location
 // Logic coming from: https://github.com/bits-and-blooms/bloom/blob/master/bloom.go#L122
-// Explaination: 
+// Explaination:
 /*
 	// hashes ==> [h0, h1, h2, h3]
 	// ii ==> i as a uint64
@@ -61,18 +66,18 @@ func baseHashes(data []byte) [4]uint64{
 	// So, we are using the first two hashes to get the base location and then using the second two hashes to get the offset (Which is double hashing)
 	We are just adding two parts here to dynamically select two hashes used in the double hashing.
 */
-func getLocation(hashes [4]uint64, i uint) uint64{
+func getLocation(hashes [4]uint64, i uint) uint64 {
 	ii := uint64(i)
 	return hashes[ii%2] + ii*hashes[2+(((ii+(ii%2))%4)/2)]
 }
 
-// struct method to apply above location logic on the actual BloomFilter's numBits (modulus part) 
-func (f *BloomFilter) location(hashes [4]uint64, i uint) uint {
+// struct method to apply above location logic on the actual Bloom StandardFilter's numBits (modulus part)
+func (f *StandardFilter) location(hashes [4]uint64, i uint) uint {
 	return uint(getLocation(hashes, i) % uint64(f.numBits))
 }
 
 // calculated numBits and numHashes based on 1. size of the data and 2. false positive rate
-func EstimateParameters(dataSize int, fp float64) (numBits uint, numHashes uint){
+func EstimateParameters(dataSize int, fp float64) (numBits uint, numHashes uint) {
 	// m = (n ln fp) / (ln 2)^2
 	numBits = uint(math.Ceil(-float64(dataSize) * math.Log(fp) / math.Pow(math.Log(2), 2)))
 	// k = (m ln 2) / n
@@ -80,34 +85,33 @@ func EstimateParameters(dataSize int, fp float64) (numBits uint, numHashes uint)
 	return
 }
 
-func NewWithEstimatedParams(dataSize int, fp float64) *BloomFilter {
+func NewWithEstimatedParams(dataSize int, fp float64) *StandardFilter {
 	numBits, numHashes := EstimateParameters(dataSize, fp)
-	return NewBloomFilter(numBits, numHashes)
+	return NewStandardFilter(numBits, numHashes)
 }
 
 // Getters for outside Bloom Package Use
 
-func (f *BloomFilter) NumBits() uint {
+func (f *StandardFilter) NumBits() uint {
 	return f.numBits
 }
 
-func (f *BloomFilter) NumHashes() uint {
+func (f *StandardFilter) NumHashes() uint {
 	return f.numHashes
 }
 
-func (f *BloomFilter) BitSet() *bitset.BitSet {
+func (f *StandardFilter) BitSet() *bitset.BitSet {
 	return f.bitset
 }
 
-// Add data to the Bloom Filter. Return the fileter(Allowing chaining)
-func (f *BloomFilter) Add(data []byte) *BloomFilter{
+// Add data to the Bloom Filter. Return the nothing(disallowing chaining)
+func (f *StandardFilter) Add(data []byte) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	hashes := baseHashes(data)
-	for i:= uint(0); i < f.numHashes; i++{
+	for i := uint(0); i < f.numHashes; i++ {
 		f.bitset.Set(f.location(hashes, i)) // As we iterate i, we are using different hashes to do the double hashing
 	}
-	return f
 }
 
 // Unknown Merge functionality for now
@@ -138,16 +142,16 @@ func (f *BloomFilter) Add(data []byte) *BloomFilter{
 // 	return f.Add([]byte(data))
 // }
 
-// Verify functionality
-// Verify checks if the data is in the Bloom filter. Returns true if it is, false otherwise.
+// Check functionality
+// Check if the data is in the Bloom standard filter. Returns true if it is, false otherwise.
 // True ==> Can be false postive, meaning the data might actually not be in the filter while returning true
 // False ==> Data is DEFINITELY!! not in the filter, never seen before
-func (f *BloomFilter) Verify(data []byte) bool{
+func (f *StandardFilter) Check(data []byte) bool {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	h := baseHashes(data)
-	for i:= uint(0); i < f.numHashes; i++{
-		if !f.bitset.Test(f.location(h, i)){
+	for i := uint(0); i < f.numHashes; i++ {
+		if !f.bitset.Test(f.location(h, i)) {
 			return false // If the data is seen before, all the bits should already be set.
 			// Now if any of the desired bit is not set, then that data has to be definitely not in the filter ==> false
 		}
@@ -174,8 +178,3 @@ func (f *BloomFilter) Verify(data []byte) bool{
 // 	}
 // 	return true
 // }
-
-
-
-
-
