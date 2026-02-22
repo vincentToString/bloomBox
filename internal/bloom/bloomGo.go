@@ -85,7 +85,7 @@ func EstimateParameters(dataSize int, fp float64) (numBits uint, numHashes uint)
 	return
 }
 
-func NewWithEstimatedParams(dataSize int, fp float64) *StandardFilter {
+func NewStandardWithEstimatedParams(dataSize int, fp float64) *StandardFilter {
 	numBits, numHashes := EstimateParameters(dataSize, fp)
 	return NewStandardFilter(numBits, numHashes)
 }
