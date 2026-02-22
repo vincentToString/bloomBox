@@ -68,7 +68,7 @@ func TestEstimateParameters(t *testing.T) {
 
 // TestNewWithEstimatedParams tests constructor with estimation
 func TestNewWithEstimatedParams(t *testing.T) {
-	bf := NewWithEstimatedParams(1000, 0.01)
+	bf := NewStandardWithEstimatedParams(1000, 0.01)
 	if bf.NumBits() == 0 {
 		t.Error("NumBits should not be 0")
 	}
@@ -223,7 +223,7 @@ func TestConcurrentReadWrite(t *testing.T) {
 func TestFalsePositiveRate(t *testing.T) {
 	n := 10000 // number of items
 	p := 0.01  // target FP rate (1%)
-	bf := NewWithEstimatedParams(n, p)
+	bf := NewStandardWithEstimatedParams(n, p)
 
 	// Add n items
 	added := make(map[string]bool)
