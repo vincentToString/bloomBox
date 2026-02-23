@@ -35,10 +35,9 @@ func NewFilter(cfg Config) (Filter, error) {
 	case TypeStandard:
 		return NewStandardWithEstimatedParams(cfg.ExpectedItems, cfg.FalsePosRate), nil
 	case TypeScalable:
-		return NewScalableFilter(cfg.ExpectedItems, cfg.FalsePosRate, cfg.GrowthFactor), nil
+		return NewScalableFilterWithEstimatedParams(cfg.ExpectedItems, cfg.FalsePosRate, cfg.GrowthFactor), nil
 	case TypeCounting:
-		//TODO
-		return nil, fmt.Errorf("Counting Filter not yet implemented")
+		return NewCountingWithEstimatedParams(cfg.ExpectedItems, cfg.FalsePosRate), nil
 	default:
 		return nil, fmt.Errorf("Unknown bloom filter type: %s", cfg.Type)
 	}

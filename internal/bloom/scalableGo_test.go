@@ -7,7 +7,7 @@ import (
 
 // test basic Add and Check
 func TestScalableFilterBasic(t *testing.T) {
-	sf := NewScalableFilter(100, 0.01, 2.0)
+	sf := NewScalableFilterWithEstimatedParams(100, 0.01, 2.0)
 
 	sf.Add([]byte("apple"))
 	sf.Add([]byte("orange"))
@@ -30,7 +30,7 @@ func TestScalableFilterBasic(t *testing.T) {
 // test scaling function when capacity is reached
 func TestScalableFilterScaling(t *testing.T) {
 	initialSize := 10
-	sf := NewScalableFilter(initialSize, 0.01, 2.0)
+	sf := NewScalableFilterWithEstimatedParams(initialSize, 0.01, 2.0)
 
 	if len(sf.filters) != 1 {
 		t.Fatalf("Expected 1 internal filter, got %d", len(sf.filters))

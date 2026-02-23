@@ -15,7 +15,7 @@ type ScalableFilter struct {
 }
 
 // Constructor for Bloom Scalable Filter
-func NewScalableFilter(initialCapacity int, fpr float64, growthFactor float64) *ScalableFilter {
+func NewScalableFilterWithEstimatedParams(initialCapacity int, fpr float64, growthFactor float64) *ScalableFilter {
 	if initialCapacity <= 0 {
 		initialCapacity = 1000 // default
 	}
