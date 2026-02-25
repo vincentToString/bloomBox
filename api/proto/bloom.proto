@@ -1,0 +1,59 @@
+//protobuf file syntax
+syntax = "proto3";
+
+// package name for the protobuf file
+package bloom;
+
+// address to generated code
+option go_package = "bloombox/api/bloom_pb";
+
+// ---------------
+//The Service below
+// -----------------
+
+service BloomService{
+    // spin up a new filter 
+    rpc CreateFilter(CreateFilterRequest) returns (CreateFilterResponse);
+
+    // Add an item to the active filter
+    rpc Add(AddRequest) returns (AddResponse);
+
+    // Check if an item is in the active filter
+    rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+// ----------------
+//The Message below
+// -----------------
+
+message CreateFilterRequest{
+    string filter_type = 1;
+    int32 expected_items = 2;
+    double false_pos_rate = 3;
+    //optional 
+    double growth_factor = 4;
+}
+
+message CreateFilterResponse{
+    bool success = 1;
+    string message = 2;
+}
+
+message AddRequest{
+    bytes data = 1;
+}
+
+message AddResponse {
+    bool success = 1;
+}
+
+message CheckRequest{
+    bytes data = 1;
+}
+
+message CheckResponse{
+    bool found = 1;
+}
+
+
+

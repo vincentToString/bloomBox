@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"bloomGo"
+	"bloombox/internal/bloom"
 )
 
 func main() {
