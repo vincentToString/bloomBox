@@ -37,7 +37,7 @@ func (s *BloomServer) CreateFilter(ctx context.Context, req *pb.CreateFilterRequ
 
 	s.mu.Lock()
 	s.activeFilter = filter
-	s.mu.RUnlock()
+	s.mu.Unlock()
 	return &pb.CreateFilterResponse{
 		Success: true,
 		Message: fmt.Sprintf("%s filter created successfully", req.FilterType),
